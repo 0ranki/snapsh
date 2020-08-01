@@ -16,4 +16,17 @@
 ## You should have received a copy of the GNU General Public License
 ## along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+help() {
+    printf "Usage:
+    snapsh [OPTIONS]
+    Options:
 
+Exit codes:
+	2 - Invalid arguments"
+}
+
+# If no options are given, display help
+if [[ "$#" -eq 0 ]]; then
+	help
+	exit 2
+fi
