@@ -34,6 +34,10 @@ help() {
 
 Options:
     -h, --help                      Display this help message
+    -d STR, --description STR       Add a description for the snapshot displayed in the
+                                    snapshots listing. Must be used before -s, e.g.
+                                    snapsh -d "A snapshot" -s root
+    -s SUBVOL, --snapshot SUBVOL    Take a snapshot of subvolume named SUBVOL.
 
 Exit codes:
 	2 - Invalid options
@@ -106,7 +110,7 @@ fi
 
 
 # Options parsing:
-OPTIONS=$(getopt -a -n snapsh -o hs: --long help,snapshot: -- "$@")
+OPTIONS=$(getopt -a -n snapsh -o hs:d: --long help,snapshot:,description: -- "$@")
 
 # Invalid options (getopt returns nonzero)
 if [[ "$?" -ne 0 ]]; then
@@ -123,6 +127,11 @@ while true; do
             help
             shift
             exit 0
+            ;;
+
+        -d | --description)
+            DESCRIPTION="$2"
+            shift 2
             ;;
 
         -s | --snapshot)
