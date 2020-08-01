@@ -16,6 +16,17 @@
 ## You should have received a copy of the GNU General Public License
 ## along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+# Environment set up:
+
+TOPLEVEL="/root/btrfs-toplevel"
+SNAPSHOTS_LOCATION="/root/btrfs-toplevel/test"
+
+BTRFS_EXECUTABLE=$(which btrfs)
+TIMESTAMP=$(date +%Y.%m.%d-%H:%M:%S)
+SUBVOLUME="root"
+
+
+
 help() {
     printf "Usage:
     snapsh [OPTIONS]
@@ -24,9 +35,41 @@ Options:
     -h, --help                      Display this help message
 
 Exit codes:
-	2 - Invalid options\n"
+	2 - Invalid options
+    3 - Error creating subvolume\n"
 }
 
+
+
+snapshot() {
+
+    EXIT_CODE=0
+    root_check
+
+    # Check that the subvolume storing snapshots exists
+    if [[ ! -d ${SNAPSHOTS_LOCATION} ]]; then
+        printf "Subvolume ${SNAPSHOTS_LOCATION} does not exist. Create it now?\n"
+        read -p "y/n: "
+        
+        if [[ "${REPLY}" == "y" ]]; then
+            ${BTRFS_EXECUTABLE} subvolume create ${SNAPSHOTS_LOCATION}
+        else
+            EXIT_CODE=3
+        fi
+    fi
+
+    exit ${EXIT_CODE}
+}
+
+
+
+# Check for root permissions
+root_check() {
+    if [[ "$UID" -ne 0 ]]; then
+        printf "This option needs root permission.\n"
+        exit 3
+    fi
+}
 
 
 
@@ -38,7 +81,7 @@ fi
 
 
 # Options parsing:
-OPTIONS=$(getopt -a -n snapsh -o h --long help -- "$@")
+OPTIONS=$(getopt -a -n snapsh -o hs: --long help,snapshot: -- "$@")
 
 # Invalid options (getopt returns nonzero)
 if [[ "$?" -ne 0 ]]; then
@@ -48,13 +91,20 @@ if [[ "$?" -ne 0 ]]; then
 fi
 
 #eval set -- "$OPTIONS"
-while true;
-    do
-        case "$1" in
-            -h | --help)
-                help
-                exit 0
-                ;;
-        esac
-    done
+while true; do
+    case "$1" in
+
+        -h | --help)
+            help
+            shift
+            exit 0
+            ;;
+
+        -s | --snapshot)
+            snapshot
+            shift 2
+            ;;
+
+    esac
+done
 
