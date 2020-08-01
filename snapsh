@@ -1,0 +1,145 @@
+#!/bin/bash
+
+## snapsh
+## Copyright (C) 2020 Jarno Rankinen
+##
+## This program is free software: you can redistribute it and/or modify
+## it under the terms of the GNU General Public License as published by
+## the Free Software Foundation, either version 3 of the License, or
+## (at your option) any later version.
+##
+## This program is distributed in the hope that it will be useful,
+## but WITHOUT ANY WARRANTY; without even the implied warranty of
+## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+## GNU General Public License for more details.
+##
+## You should have received a copy of the GNU General Public License
+## along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+# Environment set up:
+
+TOPLEVEL="/root/btrfs-toplevel"
+SNAPSHOTS_LOCATION="/root/btrfs-toplevel/snapshots"
+
+BTRFS_EXECUTABLE=$(which btrfs)
+TIMESTAMP=$(date +%Y.%m.%d-%H:%M:%S)
+SUBVOLUME="root"
+DESCRIPTION=""
+
+
+
+help() {
+    printf "Usage:
+    snapsh [OPTIONS]
+
+Options:
+    -h, --help                      Display this help message
+    -d STR, --description STR       Add a description for the snapshot displayed in the
+                                    snapshots listing. Must be used before -s, e.g.
+                                    snapsh -d "A snapshot" -s root
+    -s SUBVOL, --snapshot SUBVOL    Take a snapshot of subvolume named SUBVOL.
+
+Exit codes:
+	2 - Invalid options
+    3 - Target subvolume does not exist\n"
+}
+
+
+
+snapshot() {
+
+    EXIT_CODE=0
+    root_check
+
+    # Check that the subvolume storing snapshots exists
+    if [[ ! -d ${SNAPSHOTS_LOCATION} ]]; then
+        printf "Subvolume ${SNAPSHOTS_LOCATION} does not exist. Create it now?\n"
+        read -n 1 -p "y/n: "
+        
+        if [[ "${REPLY}" == "y" ]]; then
+            ${BTRFS_EXECUTABLE} subvolume create ${SNAPSHOTS_LOCATION}
+            unset ${REPLY}
+        else
+            EXIT_CODE=3
+        fi
+    else
+        printf "Creating snapshot of subvolume ${SUBVOLUME} as ${SUBVOLUME}_snapshot_${TIMESTAMP}\n"
+
+        # Create info file for listing snapshots
+        # Created first on the source subvolume, then deleted
+        printf "DATE=$(date)
+        SOURCE_SUBVOLUME=${SUBVOLUME}
+        DESCRIPTION=${DESCRIPTION}
+        TYPE=\"manual\"\n" > ${TOPLEVEL}/${SUBVOLUME}/.snapsh
+
+        # Create readonly subvolume
+        ${BTRFS_EXECUTABLE} subvolume snapshot -r ${TOPLEVEL}/${SUBVOLUME} ${SNAPSHOTS_LOCATION}/${SUBVOLUME}_snapshot_${TIMESTAMP}
+
+        # Delete info file from source
+        rm -f ${TOPLEVEL}/${SUBVOLUME}/.snapsh
+
+        printf "Snapshot created!
+        ${SUBVOLUME}_snapshot_${TIMESTAMP}
+        DATE=$(date)
+        SOURCE_SUBVOLUME=${SUBVOLUME}
+        DESCRIPTION=${DESCRIPTION}
+        TYPE=\"manual\"\n"
+
+    fi
+
+    exit ${EXIT_CODE}
+}
+
+
+
+# Check for root permissions
+root_check() {
+    if [[ "$UID" -ne 0 ]]; then
+        printf "This option needs root permission.\n"
+        exit 3
+    fi
+}
+
+
+
+# If no options are given, display help
+if [[ "$#" -eq 0 ]]; then
+	help
+	exit 2
+fi
+
+
+# Options parsing:
+OPTIONS=$(getopt -a -n snapsh -o hs:d: --long help,snapshot:,description: -- "$@")
+
+# Invalid options (getopt returns nonzero)
+if [[ "$?" -ne 0 ]]; then
+    printf "Error Parsing options\n"
+    help
+    exit 2
+fi
+
+eval set -- "$OPTIONS"
+while true; do
+    case "$1" in
+
+        -h | --help)
+            help
+            shift
+            exit 0
+            ;;
+
+        -d | --description)
+            DESCRIPTION="$2"
+            shift 2
+            ;;
+
+        -s | --snapshot)
+            SUBVOLUME="$2"
+            snapshot
+            shift 2
+            ;;
+
+    esac
+done
+
