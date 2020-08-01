@@ -19,14 +19,42 @@
 help() {
     printf "Usage:
     snapsh [OPTIONS]
-    Options:
+
+Options:
+    -h, --help                      Display this help message
 
 Exit codes:
-	2 - Invalid arguments"
+	2 - Invalid options\n"
 }
+
+
+
 
 # If no options are given, display help
 if [[ "$#" -eq 0 ]]; then
 	help
 	exit 2
 fi
+
+
+# Options parsing:
+OPTIONS=$(getopt -a -n snapsh -o h --long help -- "$@")
+
+# Invalid options (getopt returns nonzero)
+if [[ "$?" -ne 0 ]]; then
+    printf "Error Parsing options\n"
+    help
+    exit 2
+fi
+
+#eval set -- "$OPTIONS"
+while true;
+    do
+        case "$1" in
+            -h | --help)
+                help
+                exit 0
+                ;;
+        esac
+    done
+
