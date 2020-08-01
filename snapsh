@@ -19,11 +19,12 @@
 # Environment set up:
 
 TOPLEVEL="/root/btrfs-toplevel"
-SNAPSHOTS_LOCATION="/root/btrfs-toplevel/test"
+SNAPSHOTS_LOCATION="/root/btrfs-toplevel/snapshots"
 
 BTRFS_EXECUTABLE=$(which btrfs)
 TIMESTAMP=$(date +%Y.%m.%d-%H:%M:%S)
 SUBVOLUME="root"
+DESCRIPTION=""
 
 
 
@@ -36,7 +37,7 @@ Options:
 
 Exit codes:
 	2 - Invalid options
-    3 - Error creating subvolume\n"
+    3 - Target subvolume does not exist\n"
 }
 
 
@@ -49,13 +50,37 @@ snapshot() {
     # Check that the subvolume storing snapshots exists
     if [[ ! -d ${SNAPSHOTS_LOCATION} ]]; then
         printf "Subvolume ${SNAPSHOTS_LOCATION} does not exist. Create it now?\n"
-        read -p "y/n: "
+        read -n 1 -p "y/n: "
         
         if [[ "${REPLY}" == "y" ]]; then
             ${BTRFS_EXECUTABLE} subvolume create ${SNAPSHOTS_LOCATION}
+            unset ${REPLY}
         else
             EXIT_CODE=3
         fi
+    else
+        printf "Creating snapshot of subvolume ${SUBVOLUME} as ${SUBVOLUME}_snapshot_${TIMESTAMP}\n"
+
+        # Create info file for listing snapshots
+        # Created first on the source subvolume, then deleted
+        printf "DATE=$(date)
+        SOURCE_SUBVOLUME=${SUBVOLUME}
+        DESCRIPTION=${DESCRIPTION}
+        TYPE=\"manual\"\n" > ${TOPLEVEL}/${SUBVOLUME}/.snapsh
+
+        # Create readonly subvolume
+        ${BTRFS_EXECUTABLE} subvolume snapshot -r ${TOPLEVEL}/${SUBVOLUME} ${SNAPSHOTS_LOCATION}/${SUBVOLUME}_snapshot_${TIMESTAMP}
+
+        # Delete info file from source
+        rm -f ${TOPLEVEL}/${SUBVOLUME}/.snapsh
+
+        printf "Snapshot created!
+        ${SUBVOLUME}_snapshot_${TIMESTAMP}
+        DATE=$(date)
+        SOURCE_SUBVOLUME=${SUBVOLUME}
+        DESCRIPTION=${DESCRIPTION}
+        TYPE=\"manual\"\n"
+
     fi
 
     exit ${EXIT_CODE}
@@ -90,7 +115,7 @@ if [[ "$?" -ne 0 ]]; then
     exit 2
 fi
 
-#eval set -- "$OPTIONS"
+eval set -- "$OPTIONS"
 while true; do
     case "$1" in
 
@@ -101,6 +126,7 @@ while true; do
             ;;
 
         -s | --snapshot)
+            SUBVOLUME="$2"
             snapshot
             shift 2
             ;;
