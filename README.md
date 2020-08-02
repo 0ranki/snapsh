@@ -11,3 +11,4 @@ Btrfs snapshot managing bash script
 - Will create a subvolume named snapshots by default to the toplevel. This can also be changed with `SNAPSHOTS_LOCATION`.
 - Display usage instructions with `snapsh -h` or `snapsh --help`
 - Taking snapshots requires root priviledges. Take a snapshot with `snapsh -s SUBVOLUME` or `snapsh --snapshot SUBVOLUME`, where `SUBVOLUME` is the name of the source subvolume. You can add a description for the snapshot with the `-d | --description` option (must be used before the `-s` option)<br><br>Example with Fedora default btrfs layout with `root` and `home` subvolumes: <br> `snapsh -d "This is a snapshot" -s root` <br> This will create a snapshot called `root_snapshot_YYYY.MM.DD-hh:mm:ss` to the `snapshots` subvolume (or the one you defined with `SNAPSHOTS_LOCATION`), with a description "This is a snapshot"
+- Snapshots can be listed with `snapsh -l` or `snapsh --list`
