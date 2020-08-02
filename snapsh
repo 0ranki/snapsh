@@ -25,6 +25,7 @@ BTRFS_EXECUTABLE=$(which btrfs)
 TIMESTAMP=$(date +%Y.%m.%d-%H:%M:%S)
 SUBVOLUME="root"
 DESCRIPTION=""
+REMOVE_TARGET=""
 
 
 
@@ -39,10 +40,8 @@ Options:
                                     snapsh -d \"A snapshot\" -s root
     -s SUBVOL, --snapshot SUBVOL    Take a snapshot of subvolume named SUBVOL.
     -l, --list                      List snapshots
-
-Exit codes:
-	2 - Invalid options
-    3 - Target subvolume does not exist\n"
+    -r NUMBER, --remove NUMBER      Remove snapshot NUMBER. See snapshot numbers with 
+                                    snapsh -l\n"
 }
 
 
@@ -61,7 +60,7 @@ snapshot() {
             ${BTRFS_EXECUTABLE} subvolume create ${SNAPSHOTS_LOCATION}
             unset ${REPLY}
         else
-            EXIT_CODE=3
+            EXIT_CODE=1
         fi
     else
         printf "Creating snapshot of subvolume ${SUBVOLUME} as ${SUBVOLUME}_snapshot_${TIMESTAMP}\n"
@@ -95,7 +94,7 @@ snapshot() {
 
 list() {
     root_check
-    NUM=0
+    NUM=1
     printf "%6s %s %s %26s %s %s %6s %s %s\n" "Number" "|" "Time:" "|" "Source" "|" "Type" "|" "Description"
     for snapshot in ${SNAPSHOTS_LOCATION}/*/; do
         . ${snapshot}/.snapsh
@@ -107,11 +106,43 @@ list() {
 
 
 
+remove() {
+    root_check
+    SNAPSHOTS=(${SNAPSHOTS_LOCATION}/*/)
+    let INDEX=${REMOVE_TARGET}-1
+    TARGET=${SNAPSHOTS[${INDEX}]}
+    . ${TARGET}/.snapsh
+
+    if [[ "${INDEX}" -gt "${#SNAPSHOTS[@]}" ]]; then
+        printf "Snapshot number ${REMOVE_TARGET} does not exist.\n"
+        list
+        exit 1
+    elif [[ "${REMOVE_TARGET}" -lt 1 ]]; then
+        printf "Number must be a positive integer.\n"
+        list
+        exit 1
+    fi
+
+    printf "Delete snapshot ${REMOVE_TARGET}: ${DATE}, subvolume ${SOURCE_SUBVOLUME}, ${DESCRIPTION} (y/n)? "
+    read -n 1
+    if [[ "${REPLY}" == "y" ]]; then
+        printf "\n"
+        ${BTRFS_EXECUTABLE} property set ${TARGET} ro false
+        ${BTRFS_EXECUTABLE} subvolume delete ${TARGET}
+        exit 0
+    else
+        printf "\nAborted by user.\n"
+        exit 1
+    fi
+}
+
+
+
 # Check for root permissions
 root_check() {
     if [[ "$UID" -ne 0 ]]; then
         printf "This option needs root permission.\n"
-        exit 3
+        exit 1
     fi
 }
 
@@ -120,18 +151,18 @@ root_check() {
 # If no options are given, display help
 if [[ "$#" -eq 0 ]]; then
 	help
-	exit 2
+	exit 0
 fi
 
 
 # Options parsing:
-OPTIONS=$(getopt -a -n snapsh -o hs:d:l --long help,snapshot:,description:,list -- "$@")
+OPTIONS=$(getopt -a -n snapsh -o hs:d:lr: --long help,snapshot:,description:,list,remove: -- "$@")
 
 # Invalid options (getopt returns nonzero)
 if [[ "$?" -ne 0 ]]; then
     printf "Error Parsing options\n"
     help
-    exit 2
+    exit 1
 fi
 
 eval set -- "$OPTIONS"
@@ -159,6 +190,13 @@ while true; do
             list
             shift
             ;;
+
+        -r | --remove)
+            REMOVE_TARGET="$2"
+            remove
+            shift 2
+            ;;
+
 
     esac
 done
