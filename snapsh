@@ -36,7 +36,7 @@ Options:
     -h, --help                      Display this help message
     -d STR, --description STR       Add a description for the snapshot displayed in the
                                     snapshots listing. Must be used before -s, e.g.
-                                    snapsh -d "A snapshot" -s root
+                                    snapsh -d \"A snapshot\" -s root
     -s SUBVOL, --snapshot SUBVOL    Take a snapshot of subvolume named SUBVOL.
 
 Exit codes:
@@ -67,9 +67,9 @@ snapshot() {
 
         # Create info file for listing snapshots
         # Created first on the source subvolume, then deleted
-        printf "DATE=$(date)
-        SOURCE_SUBVOLUME=${SUBVOLUME}
-        DESCRIPTION=${DESCRIPTION}
+        printf "DATE=\"$(date)\"
+        SOURCE_SUBVOLUME=\"${SUBVOLUME}\"
+        DESCRIPTION=\"${DESCRIPTION}\"
         TYPE=\"manual\"\n" > ${TOPLEVEL}/${SUBVOLUME}/.snapsh
 
         # Create readonly subvolume
@@ -92,6 +92,20 @@ snapshot() {
 
 
 
+list() {
+    root_check
+    NUM=0
+    printf "%6s %s %s %26s %s %s %6s %s %s\n" "Number" "|" "Time:" "|" "Source" "|" "Type" "|" "Description"
+    for snapshot in ${SNAPSHOTS_LOCATION}/*/; do
+        . ${snapshot}/.snapsh
+        printf "%8s %32s %8s %8s %s\n" "${NUM} |" "${DATE} |" "${SOURCE_SUBVOLUME} |" "${TYPE} |" "${DESCRIPTION}"
+        let NUM=NUM+1
+    done
+    exit 0
+}
+
+
+
 # Check for root permissions
 root_check() {
     if [[ "$UID" -ne 0 ]]; then
@@ -110,7 +124,7 @@ fi
 
 
 # Options parsing:
-OPTIONS=$(getopt -a -n snapsh -o hs:d: --long help,snapshot:,description: -- "$@")
+OPTIONS=$(getopt -a -n snapsh -o hs:d:l --long help,snapshot:,description:,list -- "$@")
 
 # Invalid options (getopt returns nonzero)
 if [[ "$?" -ne 0 ]]; then
@@ -138,6 +152,11 @@ while true; do
             SUBVOLUME="$2"
             snapshot
             shift 2
+            ;;
+
+        -l | --list)
+            list
+            shift
             ;;
 
     esac
