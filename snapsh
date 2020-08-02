@@ -38,6 +38,7 @@ Options:
                                     snapshots listing. Must be used before -s, e.g.
                                     snapsh -d \"A snapshot\" -s root
     -s SUBVOL, --snapshot SUBVOL    Take a snapshot of subvolume named SUBVOL.
+    -l, --list                      List snapshots
 
 Exit codes:
 	2 - Invalid options
