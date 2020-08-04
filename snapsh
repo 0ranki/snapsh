@@ -25,7 +25,6 @@ BTRFS_EXECUTABLE=$(which btrfs)
 TIMESTAMP=$(date +%Y.%m.%d-%H:%M:%S)
 SUBVOLUME="root"
 DESCRIPTION=""
-REMOVE_TARGET=""
 
 
 
@@ -41,7 +40,10 @@ Options:
     -s SUBVOL, --snapshot SUBVOL    Take a snapshot of subvolume named SUBVOL.
     -l, --list                      List snapshots
     -r NUMBER, --remove NUMBER      Remove snapshot NUMBER. See snapshot numbers with 
-                                    snapsh -l\n"
+                                    snapsh -l
+    --rollback NUMBER               Roll back to snapshot NUMBER. See snapshot numbers
+                                    with snapsh -l. Target subvolume is detected from
+                                    snapshot automatically.\n"
 }
 
 
@@ -109,19 +111,18 @@ list() {
 remove() {
     root_check
     SNAPSHOTS=(${SNAPSHOTS_LOCATION}/*/)
+
+    if [[ "${REMOVE_TARGET}" -gt "${#SNAPSHOTS[@]}" ]]; then
+        printf "Snapshot number ${REMOVE_TARGET} does not exist.\n"
+        exit 1
+    elif [[ "${REMOVE_TARGET}" -lt 1 ]]; then
+        printf "Number must be greater than 0.\n"
+        exit 1
+    fi
+    
     let INDEX=${REMOVE_TARGET}-1
     TARGET=${SNAPSHOTS[${INDEX}]}
     . ${TARGET}/.snapsh
-
-    if [[ "${INDEX}" -gt "${#SNAPSHOTS[@]}" ]]; then
-        printf "Snapshot number ${REMOVE_TARGET} does not exist.\n"
-        list
-        exit 1
-    elif [[ "${REMOVE_TARGET}" -lt 1 ]]; then
-        printf "Number must be a positive integer.\n"
-        list
-        exit 1
-    fi
 
     printf "Delete snapshot ${REMOVE_TARGET}: ${DATE}, subvolume ${SOURCE_SUBVOLUME}, ${DESCRIPTION} (y/n)? "
     read -n 1
@@ -134,6 +135,64 @@ remove() {
         printf "\nAborted by user.\n"
         exit 1
     fi
+}
+
+
+
+rollback() {
+    root_check
+    SNAPSHOTS=(${SNAPSHOTS_LOCATION}/*/)
+
+    if [[ "${ROLLBACK_TARGET}" -gt "${#SNAPSHOTS[@]}" ]]; then
+        printf "Snapshot number ${ROLLBACK_TARGET} does not exist.\n"
+        exit 1
+    elif [[ "${ROLLBACK_TARGET}" -lt 1 ]]; then
+        printf "Number must be greater than 0.\n"
+        exit 1
+    fi
+
+    let INDEX=${ROLLBACK_TARGET}-1
+    TARGET=${SNAPSHOTS[${INDEX}]}
+    . ${TARGET}/.snapsh
+
+    printf "You are about to roll back to snapshot ${ROLLBACK_TARGET}: ${DATE}, subvolume ${SOURCE_SUBVOLUME}, type ${TYPE}, ${DESCRIPTION}.\nAre you sure (yes/no)? "
+    read
+
+    if [[ "${REPLY}" == "yes" ]]; then
+        unset ${REPLY}
+        printf "\nCreating a backup snapshot of ${SOURCE_SUBVOLUME}...\n"
+        # Create info file
+        printf "DATE=\"$(date)\"
+        SOURCE_SUBVOLUME=\"${SOURCE_SUBVOLUME}\"
+        DESCRIPTION=\"Rollback backup\"
+        TYPE=\"backup\"\n" > ${TOPLEVEL}/${SOURCE_SUBVOLUME}/.snapsh
+
+        # Create backup snapshot
+        ${BTRFS_EXECUTABLE} subvolume snapshot -r ${TOPLEVEL}/${SUBVOLUME} ${SNAPSHOTS_LOCATION}/${SUBVOLUME}_snapshot_${TIMESTAMP}
+        rm -f ${TOPLEVEL}/${SOURCE_SUBVOLUME}/.snapsh
+
+        # Rename current subvolume
+        printf "Renaming ${SOURCE_SUBVOLUME} to ${SOURCE_SUBVOLUME}.backup...\n"
+        mv ${TOPLEVEL}/${SOURCE_SUBVOLUME} ${TOPLEVEL}/${SOURCE_SUBVOLUME}.backup
+
+        printf "Copying ${TARGET} to ${TOPLEVEL}/${SOURCE_SUBVOLUME}...\n"
+        ${BTRFS_EXECUTABLE} subvolume snapshot ${TARGET} ${TOPLEVEL}/${SOURCE_SUBVOLUME}
+
+        printf "System needs to be restarted. Do you wish to do that now? (recommended!)? (y/n) "
+        read -n 1
+
+        if [[ "${REPLY}" == "y" ]]; then
+            systemctl restart & exit 0
+        else
+            printf "\nPlease restart system as soon as possible. Any changes to\nsubvolume ${SOURCE_SUBVOLUME} will not persist after rebooting.\n"
+            exit 1
+        fi
+
+    else 
+        printf "\nAborted by user\n"
+        exit 1
+    fi
+    
 }
 
 
@@ -156,7 +215,7 @@ fi
 
 
 # Options parsing:
-OPTIONS=$(getopt -a -n snapsh -o hs:d:lr: --long help,snapshot:,description:,list,remove: -- "$@")
+OPTIONS=$(getopt -a -n snapsh -o hs:d:lr: --long help,snapshot:,description:,list,remove:,rollback: -- "$@")
 
 # Invalid options (getopt returns nonzero)
 if [[ "$?" -ne 0 ]]; then
@@ -196,6 +255,13 @@ while true; do
             remove
             shift 2
             ;;
+
+        --rollback)
+            ROLLBACK_TARGET="$2"
+            rollback
+            shift 2
+            ;;
+            
 
 
     esac
