@@ -29,15 +29,16 @@ DESCRIPTION=""
 
 
 help() {
-    printf "Usage:
-    snapsh [OPTIONS]
+    printf "Usage:\n
+snapsh [OPTIONS]
 
 Options:
     -h, --help                      Display this help message
-    -d STR, --description STR       Add a description for the snapshot displayed in the
-                                    snapshots listing. Must be used before -s, e.g.
-                                    snapsh -d \"A snapshot\" -s root
     -s SUBVOL, --snapshot SUBVOL    Take a snapshot of subvolume named SUBVOL.
+    -d STR, --description STR       Add a description for the snapshot displayed in the
+                                    snapshots listing.
+    -t TYPE, --type TYPE            Set the type of snapshot, where TYPE=manual|auto|boot|backup
+                                    Can be used with -l, --list to filter results
     -l, --list                      List snapshots
     -r NUMBER, --remove NUMBER      Remove snapshot NUMBER. See snapshot numbers with 
                                     snapsh -l
@@ -65,6 +66,11 @@ snapshot() {
             EXIT_CODE=1
         fi
     else
+        # TYPE defaults to manual
+        if [[ -z "${SET_TYPE}" ]]; then
+            SET_TYPE="manual"
+        fi
+
         printf "Creating snapshot of subvolume ${SUBVOLUME} as ${SUBVOLUME}_snapshot_${TIMESTAMP}\n"
 
         # Create info file for listing snapshots
@@ -72,7 +78,7 @@ snapshot() {
         printf "DATE=\"$(date)\"
         SOURCE_SUBVOLUME=\"${SUBVOLUME}\"
         DESCRIPTION=\"${DESCRIPTION}\"
-        TYPE=\"manual\"\n" > ${TOPLEVEL}/${SUBVOLUME}/.snapsh
+        TYPE=\"${SET_TYPE}\"\n" > ${TOPLEVEL}/${SUBVOLUME}/.snapsh
 
         # Create readonly subvolume
         ${BTRFS_EXECUTABLE} subvolume snapshot -r ${TOPLEVEL}/${SUBVOLUME} ${SNAPSHOTS_LOCATION}/${SUBVOLUME}_snapshot_${TIMESTAMP}
@@ -85,7 +91,7 @@ snapshot() {
         DATE=$(date)
         SOURCE_SUBVOLUME=${SUBVOLUME}
         DESCRIPTION=${DESCRIPTION}
-        TYPE=\"manual\"\n"
+        TYPE=\"${SET_TYPE}\"\n"
 
     fi
 
@@ -99,8 +105,14 @@ list() {
     NUM=1
     printf "%6s %s %s %26s %s %s %6s %s %s\n" "Number" "|" "Time:" "|" "Source" "|" "Type" "|" "Description"
     for snapshot in ${SNAPSHOTS_LOCATION}/*/; do
-        . ${snapshot}/.snapsh
-        printf "%8s %32s %8s %8s %s\n" "${NUM} |" "${DATE} |" "${SOURCE_SUBVOLUME} |" "${TYPE} |" "${DESCRIPTION}"
+        if [[ -z "${SET_TYPE}" ]]; then
+            . ${snapshot}/.snapsh
+            printf "%8s %32s %8s %8s %s\n" "${NUM} |" "${DATE} |" "${SOURCE_SUBVOLUME} |" "${TYPE} |" "${DESCRIPTION}"
+        elif [[ -n "${SET_TYPE}" ]]; then
+            . ${snapshot}/.snapsh
+            [[ "${SET_TYPE}" == "${TYPE}" ]] && printf "%8s %32s %8s %8s %s\n" "${NUM} |" "${DATE} |" "${SOURCE_SUBVOLUME} |" "${TYPE} |" "${DESCRIPTION}"
+        fi
+            
         let NUM=NUM+1
     done
     exit 0
@@ -124,7 +136,7 @@ remove() {
     TARGET=${SNAPSHOTS[${INDEX}]}
     . ${TARGET}/.snapsh
 
-    printf "Delete snapshot ${REMOVE_TARGET}: ${DATE}, subvolume ${SOURCE_SUBVOLUME}, ${DESCRIPTION} (y/n)? "
+    printf "Delete snapshot ${REMOVE_TARGET}: ${DATE}, source subvolume ${SOURCE_SUBVOLUME}, ${TYPE}, ${DESCRIPTION} (y/n)? "
     read -n 1
     if [[ "${REPLY}" == "y" ]]; then
         printf "\n"
@@ -215,11 +227,11 @@ fi
 
 
 # Options parsing:
-OPTIONS=$(getopt -a -n snapsh -o hs:d:lr: --long help,snapshot:,description:,list,remove:,rollback: -- "$@")
+OPTIONS=$(getopt -a -n snapsh -o hs:d:lr:t: --long help,snapshot:,description:,list,remove:,rollback:,type: -- "$@")
 
 # Invalid options (getopt returns nonzero)
 if [[ "$?" -ne 0 ]]; then
-    printf "Error Parsing options\n"
+    printf "Invalid options.\n"
     help
     exit 1
 fi
@@ -241,12 +253,12 @@ while true; do
 
         -s | --snapshot)
             SUBVOLUME="$2"
-            snapshot
+            SNAPSHOT=true
             shift 2
             ;;
 
         -l | --list)
-            list
+            LIST=true
             shift
             ;;
 
@@ -261,9 +273,34 @@ while true; do
             rollback
             shift 2
             ;;
+        
+        -t | --type)
+            case "$2" in
+                manual)
+                    SET_TYPE="manual";;
+                auto)
+                    SET_TYPE="auto";;
+                boot)
+                    SET_TYPE="boot";;
+                backup)
+                    SET_TYPE="backup";;
+                *)
+                    printf "\nIncorrect type value.\n"
+                    exit 1;;
+            esac
+            shift 2
+            ;;
             
-
+        --)
+            shift
+            break
+            ;;
 
     esac
 done
 
+if [[ -n "${SNAPSHOT}" ]]; then
+    snapshot
+elif [[ -n "${LIST}" ]]; then
+    list
+fi
