@@ -182,9 +182,9 @@ rollback() {
         read -n 1
 
         if [[ "${REPLY}" == "y" ]]; then
-            systemctl restart & exit 0
+            systemctl reboot & exit 0
         else
-            printf "\nPlease restart system as soon as possible. Any changes to\nsubvolume ${SOURCE_SUBVOLUME} will not persist after rebooting.\n"
+            printf "\nPlease restart system as soon as possible. Any changes to subvolume ${SOURCE_SUBVOLUME} will not persist after rebooting.\n"
             exit 1
         fi
 
