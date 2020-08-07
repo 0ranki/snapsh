@@ -18,13 +18,19 @@
 
 # Environment set up:
 
-TOPLEVEL="/root/btrfs-toplevel"
-SNAPSHOTS_LOCATION="/root/btrfs-toplevel/snapshots"
+if [[ -e /etc/snapsh.conf ]]; then
+    . /etc/snapsh.conf
+else
+    TOPLEVEL="/root/btrfs-toplevel"
+    SNAPSHOTS_LOCATION="/root/btrfs-toplevel/snapshots"
 
+    TIMESTAMP="$(date +%Y.%m.%d-%H.%M.%S)"
+    SUBVOLUME="root"
+    DESCRIPTION=""
+fi
+
+## In case of problems, define the path to the 'btrfs' executable here
 BTRFS_EXECUTABLE=$(which btrfs)
-TIMESTAMP=$(date +%Y.%m.%d-%H:%M:%S)
-SUBVOLUME="root"
-DESCRIPTION=""
 
 
 
