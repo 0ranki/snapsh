@@ -226,6 +226,34 @@ rollback() {
 
 
 
+post-rollback() {
+    ## This function is meant to be executed by the included systemd unit on every boot
+    ## Outputs to systemd-journal, use journalctl -t snapsh to check output
+
+    EXIT_CODE=0
+
+    shopt -s nullglob
+
+    echo "Checking for leftover subvolumes..." | systemd-cat -t snapsh
+
+    BACKUPS=("${TOPLEVEL}/*.backup/")
+
+    if [[ -n "$BACKUPS" ]]; then
+        for backup in ${TOPLEVEL}/*.backup/; do
+            echo "${backup} found" | systemd-cat -t snapsh
+            echo "Deleting ${backup}..." | systemd-cat -t snapsh
+            ${BTRFS_EXECUTABLE} subvolume delete ${backup} > /dev/null
+            let EXIT_CODE=${EXIT_CODE}+$?
+        done
+        exit ${EXIT_CODE}
+    else
+        echo "No leftovers found." | systemd-cat -t snapsh
+        exit 0
+    fi
+}
+
+
+
 # Check for root permissions
 root_check() {
     if [[ "$UID" -ne 0 ]]; then
@@ -244,7 +272,7 @@ fi
 
 
 # Options parsing:
-OPTIONS=$(getopt -a -n snapsh -o hs:d:lr:t: --long help,snapshot:,description:,list,remove:,rollback:,type: -- "$@")
+OPTIONS=$(getopt -a -n snapsh -o hs:d:lr:t: --long help,snapshot:,description:,list,remove:,rollback:,type:,post-rollback -- "$@")
 
 # Invalid options (getopt returns nonzero)
 if [[ "$?" -ne 0 ]]; then
@@ -291,6 +319,11 @@ while true; do
             ROLLBACK_TARGET="$2"
             rollback
             shift 2
+            ;;
+
+        --post-rollback)
+            post-rollback
+            shift
             ;;
         
         -t | --type)
