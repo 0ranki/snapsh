@@ -16,22 +16,25 @@
 ## You should have received a copy of the GNU General Public License
 ## along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+printf "\n"     # Print an empty line for readability
+
 # Environment set up:
 
+# If config file exists, source it, otherwise use default values
 if [[ -e /etc/snapsh.conf ]]; then
     . /etc/snapsh.conf
 else
-    TOPLEVEL="/root/btrfs-toplevel"
-    SNAPSHOTS_LOCATION="/root/btrfs-toplevel/snapshots"
+    TOPLEVEL="/root/btrfs-toplevel"                     # Mountpoint of subvolid=6
+    SNAPSHOTS_LOCATION="/root/btrfs-toplevel/snapshots" # Mountpoint of subvolume for snapshots
 
-    TIMESTAMP="$(date +%Y.%m.%d-%H.%M.%S)"
-    SUBVOLUME="root"
-    DESCRIPTION=""
-fi
+    TIMESTAMP="$(date +%Y.%m.%d-%H.%M.%S)"              # Timestamp used in naming snapshots
+fi                                                      # (Not the one used in --list)
 
 ## In case of problems, define the path to the 'btrfs' executable here
 BTRFS_EXECUTABLE=$(which btrfs)
 
+SUBVOLUME="root"    # Default subvolume
+DESCRIPTION=""      # Description is blank unless set with the -d|--description option
 
 
 help() {
@@ -58,7 +61,7 @@ Options:
 snapshot() {
 
     EXIT_CODE=0
-    root_check
+    root_check          #Check that script is run with root privileges.
 
     # Check that the subvolume storing snapshots exists
     if [[ ! -d ${SNAPSHOTS_LOCATION} ]]; then
@@ -66,6 +69,7 @@ snapshot() {
         read -n 1 -p "y/n: "
         
         if [[ "${REPLY}" == "y" ]]; then
+            # Create subvolume defined with SNAPSHOTS_LOCATION
             ${BTRFS_EXECUTABLE} subvolume create ${SNAPSHOTS_LOCATION}
             unset ${REPLY}
         else
@@ -80,7 +84,7 @@ snapshot() {
         printf "Creating snapshot of subvolume ${SUBVOLUME} as ${SUBVOLUME}_snapshot_${TIMESTAMP}\n"
 
         # Create info file for listing snapshots
-        # Created first on the source subvolume, then deleted
+        # Created first on the source subvolume, then deleted from the source
         printf "DATE=\"$(date)\"
         SOURCE_SUBVOLUME=\"${SUBVOLUME}\"
         DESCRIPTION=\"${DESCRIPTION}\"
@@ -128,8 +132,11 @@ list() {
 
 remove() {
     root_check
+
+    # List snapshots in to array SNAPSHOTS
     SNAPSHOTS=(${SNAPSHOTS_LOCATION}/*/)
 
+    # Check that given NUMBER is a valid snapshot
     if [[ "${REMOVE_TARGET}" -gt "${#SNAPSHOTS[@]}" ]]; then
         printf "Snapshot number ${REMOVE_TARGET} does not exist.\n"
         exit 1
@@ -146,8 +153,8 @@ remove() {
     read -n 1
     if [[ "${REPLY}" == "y" ]]; then
         printf "\n"
-        ${BTRFS_EXECUTABLE} property set ${TARGET} ro false
-        ${BTRFS_EXECUTABLE} subvolume delete ${TARGET}
+        ${BTRFS_EXECUTABLE} property set ${TARGET} ro false     # Set snapshot as read-write first
+        ${BTRFS_EXECUTABLE} subvolume delete ${TARGET}          # Delete snapshot
         exit 0
     else
         printf "\nAborted by user.\n"
@@ -158,9 +165,10 @@ remove() {
 
 
 rollback() {
-    root_check
-    SNAPSHOTS=(${SNAPSHOTS_LOCATION}/*/)
+    root_check      # Check root privileges
+    SNAPSHOTS=(${SNAPSHOTS_LOCATION}/*/)    # List snapshots to array
 
+    # Check that NUBER to roll back to is a valid snapshot
     if [[ "${ROLLBACK_TARGET}" -gt "${#SNAPSHOTS[@]}" ]]; then
         printf "Snapshot number ${ROLLBACK_TARGET} does not exist.\n"
         exit 1
@@ -173,12 +181,12 @@ rollback() {
     TARGET=${SNAPSHOTS[${INDEX}]}
     . ${TARGET}/.snapsh
 
-    printf "You are about to roll back to snapshot ${ROLLBACK_TARGET}: ${DATE}, subvolume ${SOURCE_SUBVOLUME}, type ${TYPE}, ${DESCRIPTION}.\nAre you sure (yes/no)? "
+    printf "\nYou are about to roll back to snapshot ${ROLLBACK_TARGET}: ${DATE}, subvolume ${SOURCE_SUBVOLUME}, type ${TYPE}, ${DESCRIPTION}.\n\nAre you sure (yes/no)? "
     read
 
     if [[ "${REPLY}" == "yes" ]]; then
         unset ${REPLY}
-        printf "\nCreating a backup snapshot of ${SOURCE_SUBVOLUME}...\n"
+        printf "\nCreating a backup snapshot of ${SOURCE_SUBVOLUME}...\n\n"
         # Create info file
         printf "DATE=\"$(date)\"
         SOURCE_SUBVOLUME=\"${SOURCE_SUBVOLUME}\"
@@ -186,8 +194,11 @@ rollback() {
         TYPE=\"backup\"\n" > ${TOPLEVEL}/${SOURCE_SUBVOLUME}/.snapsh
 
         # Create backup snapshot
-        ${BTRFS_EXECUTABLE} subvolume snapshot -r ${TOPLEVEL}/${SUBVOLUME} ${SNAPSHOTS_LOCATION}/${SUBVOLUME}_snapshot_${TIMESTAMP}
+        printf "\nCreating snapshot of ${SUBVOLUME} as ${SNAPSHOTS_LOCATION}/${SUBVOLUME}_backup_${TIMESTAMP}...\n"
+        ${BTRFS_EXECUTABLE} subvolume snapshot -r ${TOPLEVEL}/${SUBVOLUME} ${SNAPSHOTS_LOCATION}/${SUBVOLUME}_backup_${TIMESTAMP}
         rm -f ${TOPLEVEL}/${SOURCE_SUBVOLUME}/.snapsh
+
+        printf "\n"
 
         # Rename current subvolume
         printf "Renaming ${SOURCE_SUBVOLUME} to ${SOURCE_SUBVOLUME}.backup...\n"
@@ -196,13 +207,13 @@ rollback() {
         printf "Copying ${TARGET} to ${TOPLEVEL}/${SOURCE_SUBVOLUME}...\n"
         ${BTRFS_EXECUTABLE} subvolume snapshot ${TARGET} ${TOPLEVEL}/${SOURCE_SUBVOLUME}
 
-        printf "System needs to be restarted. Do you wish to do that now? (recommended!)? (y/n) "
+        printf "\nSystem needs to be restarted. Do you wish to do that now? (recommended!)? (y/n) "
         read -n 1
 
         if [[ "${REPLY}" == "y" ]]; then
             systemctl reboot & exit 0
         else
-            printf "\nPlease restart system as soon as possible. Any changes to subvolume ${SOURCE_SUBVOLUME} will not persist after rebooting.\n"
+            printf "\n\nPlease restart system as soon as possible. Any changes to subvolume ${SOURCE_SUBVOLUME} will not persist after rebooting.\n"
             exit 1
         fi
 
@@ -243,6 +254,8 @@ if [[ "$?" -ne 0 ]]; then
 fi
 
 eval set -- "$OPTIONS"
+
+# Loop through options until -- is reached
 while true; do
     case "$1" in
 
@@ -291,7 +304,7 @@ while true; do
                 backup)
                     SET_TYPE="backup";;
                 *)
-                    printf "\nIncorrect type value.\n"
+                    printf "\nIncorrect TYPE value.\n"
                     exit 1;;
             esac
             shift 2
