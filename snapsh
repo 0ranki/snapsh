@@ -180,6 +180,8 @@ rollback() {
     let INDEX=${ROLLBACK_TARGET}-1
     TARGET=${SNAPSHOTS[${INDEX}]}
     . ${TARGET}/.snapsh
+    
+    SUBVOLUME=${SOURCE_SUBVOLUME}
 
     printf "\nYou are about to roll back to snapshot ${ROLLBACK_TARGET}: ${DATE}, subvolume ${SOURCE_SUBVOLUME}, type ${TYPE}, ${DESCRIPTION}.\n\nAre you sure (yes/no)? "
     read
