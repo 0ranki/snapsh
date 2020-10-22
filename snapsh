@@ -188,7 +188,7 @@ rollback() {
 
     if [[ "${REPLY}" == "yes" ]]; then
         unset ${REPLY}
-        printf "\nCreating a backup snapshot of ${SOURCE_SUBVOLUME}...\n\n"
+        #printf "\nCreating a backup snapshot of ${SOURCE_SUBVOLUME}...\n\n"
         # Create info file
         printf "DATE=\"$(date)\"
         SOURCE_SUBVOLUME=\"${SOURCE_SUBVOLUME}\"
@@ -209,7 +209,21 @@ rollback() {
         printf "Copying ${TARGET} to ${TOPLEVEL}/${SOURCE_SUBVOLUME}...\n"
         ${BTRFS_EXECUTABLE} subvolume snapshot ${TARGET} ${TOPLEVEL}/${SOURCE_SUBVOLUME}
 
-        printf "\nSystem needs to be restarted. Do you wish to do that now? (recommended!)? (y/n) "
+        # Check for SElinux
+        if [[ $(/usr/sbin/getenforce) == "Enforcing" ]]; then
+            printf "\nThe system seems to have SElinux enabled. Rollbacks may cause problems with SElinux, so a relabeling is recommended.\n"
+            printf "Do you wish to do a relabeling after restart? (y/n) "
+            read -n 1
+
+            if [[ "${REPLY}" == "y" ]]; then
+                touch ${TOPLEVEL}/${SOURCE_SUBVOLUME}/.autorelabel
+            else
+                printf "\n\nIf you have problems after the rollback, like not being\nable to log in, add 'enforcing=0' parameter to kernel command line\n"
+                printf "via your bootloaders edit function or boot to a live USB\nand edit /etc/selinux/config and change 'SELINUX=enforcing' to 'SELINUX=permissive'.\n"
+            fi
+        fi  
+
+        printf "\nSystem needs to be restarted. Do you wish to do that now? (recommended!) (y/n) "
         read -n 1
 
         if [[ "${REPLY}" == "y" ]]; then
