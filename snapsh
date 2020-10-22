@@ -238,19 +238,24 @@ post-rollback() {
 
     echo "Checking for leftover subvolumes..." | systemd-cat -t snapsh
 
-    BACKUPS=("${TOPLEVEL}/*.backup/")
+    BACKUPS=(${TOPLEVEL}/*.backup/)
 
-    if [[ -n "$BACKUPS" ]]; then
-        for backup in ${TOPLEVEL}/*.backup/; do
+    if [[ -n "${BACKUPS[@]}" ]]; then
+
+        for backup in "${BACKUPS[@]}"; do
             echo "${backup} found" | systemd-cat -t snapsh
-            echo "Deleting ${backup}..." | systemd-cat -t snapsh
+            echo "Deleting  ${backup}..." | systemd-cat -t snapsh
             ${BTRFS_EXECUTABLE} subvolume delete ${backup} > /dev/null
-            let EXIT_CODE=${EXIT_CODE}+$?
+            let EXIT_CODE=${EXIT_CODE}+${?}
         done
+
         exit ${EXIT_CODE}
+
     else
+
         echo "No leftovers found." | systemd-cat -t snapsh
         exit 0
+        
     fi
 }
 
