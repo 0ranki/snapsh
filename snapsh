@@ -16,8 +16,6 @@
 ## You should have received a copy of the GNU General Public License
 ## along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-printf "\n"     # Print an empty line for readability
-
 # Environment set up:
 
 # If config file exists, source it, otherwise use default values
@@ -112,9 +110,15 @@ snapshot() {
 
 list() {
     root_check
+    shopt -s nullglob
     NUM=1
+    SNAPSHOTS=(${SNAPSHOTS_LOCATION}/*/)
+    if [[ "${#SNAPSHOTS[@]}" -eq 0 ]]; then
+        printf "No snapshots found in ${SNAPSHOTS_LOCATION}.\n"
+        exit 0
+    fi
     printf "%6s %s %s %26s %s %s %6s %s %s\n" "Number" "|" "Time:" "|" "Source" "|" "Type" "|" "Description"
-    for snapshot in ${SNAPSHOTS_LOCATION}/*/; do
+    for snapshot in ${SNAPSHOTS[@]}; do
         if [[ -z "${SET_TYPE}" ]]; then
             . ${snapshot}/.snapsh
             printf "%8s %32s %8s %8s %s\n" "${NUM} |" "${DATE} |" "${SOURCE_SUBVOLUME} |" "${TYPE} |" "${DESCRIPTION}"
