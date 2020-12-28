@@ -187,7 +187,12 @@ rollback() {
     
     SUBVOLUME=${SOURCE_SUBVOLUME}
 
-    printf "\nYou are about to roll back to snapshot ${ROLLBACK_TARGET}: ${DATE}, subvolume ${SOURCE_SUBVOLUME}, type ${TYPE}, ${DESCRIPTION}.\n\nAre you sure (yes/no)? "
+    printf "\nYou are about to roll back to snapshot
+    ${ROLLBACK_TARGET}: ${DATE}
+    subvolume ${SOURCE_SUBVOLUME}
+    type ${TYPE}
+    description: ${DESCRIPTION}
+    \nAre you sure (yes/no)? "
     read
 
     if [[ "${REPLY}" == "yes" ]]; then
