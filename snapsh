@@ -60,39 +60,29 @@ mount_check() {
     # Check that the toplevel subvolume (id=5) is mounted, and if not,
     # mount it to path defined in $TOPLEVEL
     
-    mount | grep subvolid=5 | grep "${TOPLEVEL}" > /dev/null
-    if [[ "$?" -ne 0 ]]; then
+    if ! mount | grep subvolid=5 | grep "${TOPLEVEL}" &> /dev/null; then
         # Get the UUID of the current btrfs volume
         MOUNT_UUID=$(btrfs filesystem show | grep uuid | cut -d ':' -f 3)
         # Create the mountpoint for the toplevel if needed
         [[ -d ${TOPLEVEL} ]] || mkdir -p ${TOPLEVEL}
         # Mount the toplevel
         mount -U ${MOUNT_UUID} -o subvolid=5 ${TOPLEVEL}
+        printf "Created mountpoint ${TOPLEVEL} for the top level subvolume.\n"
     fi
 
-    if [[ -n ${SNAPSHOT} ]]; then
-        # If taking a snapshot,
-        # check that the subvolume storing snapshots exists and if not, ask
-        # to create it.
-        ${BTRFS_EXECUTABLE} subvolume show ${SNAPSHOTS_LOCATION} > /dev/null
-        if [[ "$?" -ne 0 ]]; then
-            printf "Subvolume ${SNAPSHOTS_LOCATION} does not exist. Create it now?\n"
-            read -n 1 -p "y/n: "
-            
-            if [[ "${REPLY}" == "y" ]]; then
-                # Create subvolume defined with SNAPSHOTS_LOCATION
-                ${BTRFS_EXECUTABLE} subvolume create ${SNAPSHOTS_LOCATION}
-                unset ${REPLY}
-            else
-                exit 1
-            fi
-        fi
-    else
-        # Otherwise, just check that the subvolume in SNAPSHOTS_LOCATION
-        # exists, and notify if not.
-        ${BTRFS_EXECUTABLE} subvolume show ${SNAPSHOTS_LOCATION} > /dev/null
-        if [[ "$?" -ne 0 ]]; then
-            printf "Subvolume ${SNAPSHOTS_LOCATION} does not exist.\n"
+    # Check that the subvolume for storing snapshots exists, and if not,
+    # ask to create it
+    if ! ${BTRFS_EXECUTABLE} subvolume show ${SNAPSHOTS_LOCATION} &> /dev/null; then
+        printf "Subvolume ${SNAPSHOTS_LOCATION} does not exist. Create it now? "
+        read -n 1 -p "y/n: "
+        
+        if [[ "${REPLY}" == "y" ]]; then
+            printf "\n"
+            # Create subvolume defined with SNAPSHOTS_LOCATION
+            ${BTRFS_EXECUTABLE} subvolume create ${SNAPSHOTS_LOCATION}
+            unset ${REPLY}
+        else
+            printf "\n$0 needs the 'snapshots' subvolume to operate. Please see README.md\n"
             exit 1
         fi
     fi
