@@ -28,6 +28,12 @@ else
     TIMESTAMP="$(date +%Y.%m.%d-%H.%M.%S)"              # Timestamp used in naming snapshots
 fi                                                      # (Not the one used in --list)
 
+exit() {
+    umount ${TOPLEVEL}
+    rmdir ${TOPLEVEL}
+    builtin exit $1
+}
+
 ## In case of problems, define the path to the 'btrfs' executable here
 BTRFS_EXECUTABLE=$(which btrfs)
 
@@ -67,7 +73,6 @@ mount_check() {
         [[ -d ${TOPLEVEL} ]] || mkdir -p ${TOPLEVEL}
         # Mount the toplevel
         mount -U ${MOUNT_UUID} -o subvolid=5 ${TOPLEVEL}
-        printf "Created mountpoint ${TOPLEVEL} for the top level subvolume.\n"
     fi
 
     # Check that the subvolume for storing snapshots exists, and if not,
@@ -144,7 +149,7 @@ list() {
     NUM=1
     SNAPSHOTS=(${SNAPSHOTS_LOCATION}/*/)
     if [[ "${#SNAPSHOTS[@]}" -eq 0 ]]; then
-        printf "No snapshots found in ${SNAPSHOTS_LOCATION}.\n"
+        printf "No snapshots managed by snapsh found.\n"
         exit 0
     fi
     printf "%6s %s %s %26s %10s %s %6s %s %s\n" "Number" "|" "Time:" "|" \
@@ -254,6 +259,7 @@ rollback() {
 
         printf "Copying ${TARGET} to ${TOPLEVEL}/${SOURCE_SUBVOLUME}...\n"
         ${BTRFS_EXECUTABLE} subvolume snapshot ${TARGET} ${TOPLEVEL}/${SOURCE_SUBVOLUME}
+        rm -f ${TOPLEVEL}/${SOURCE_SUBVOLUME}/.snapsh
 
         # Check for SElinux
         if [[ $(/usr/sbin/getenforce) == "Enforcing" ]]; then
@@ -297,6 +303,7 @@ post-rollback() {
     shopt -s nullglob
 
     echo "Checking for leftover subvolumes..." | systemd-cat -t snapsh
+    mount_check
 
     BACKUPS=(${TOPLEVEL}/*.backup/)
 
