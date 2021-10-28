@@ -18,6 +18,8 @@
 
 # Environment set up:
 
+SNAPSH_VERSION='0.1.0'
+
 # If config file exists, source it, otherwise use default values
 if [[ -e /etc/snapsh.conf ]]; then
     . /etc/snapsh.conf
@@ -29,8 +31,10 @@ else
 fi                                                      # (Not the one used in --list)
 
 exit() {
-    umount ${TOPLEVEL}
-    rmdir ${TOPLEVEL}
+    if [[ "$SNAPSH_MOUNT" != "true" ]]; then
+        umount ${TOPLEVEL} &> /dev/null
+        rmdir ${TOPLEVEL} &> /dev/null
+    fi
     builtin exit $1
 }
 
@@ -336,6 +340,54 @@ root_check() {
     fi
 }
 
+version() {
+
+    echo $SNAPSH_VERSION
+    exit
+
+}
+
+
+# Convenience option to copy the files to correct places
+install() {
+
+    INSTALL_DIR=/usr/local/bin/
+
+    root_check
+
+    CURRENT_SNAPSH=$(command -v snapsh)
+    INSTALLED=$?
+    printf "Installing from $0. Make sure you are not executing snapsh from your \$PATH!\n"
+    read -p "Press enter to continue or CTRL-C to stop..."
+    unset $REPLY
+    if [[ ! "$INSTALLED" ]]; then
+        cp $0 $INSTALL_DIR
+        exit 0
+    else
+        CURRENT_VERSION=$(snapsh -v)
+        if [[ "$CURRENT_VERSION" != "$SNAPSH_VERSION" ]]; then
+            SRC_DIR=${0%/*}
+            printf "/usr/local/bin/snapsh version $CURRENT_VERSION is already installed.\n"
+            printf "Do you want to overwrite it with version $SNAPSH_VERSION? (y/n) "
+            read -n1
+            if [[ "$REPLY" == "y" ]]; then
+                cp -v $0 $INSTALL_DIR
+                cp -v $SRC_DIR/snapsh.conf /etc/snapsh.conf
+                cp -v $SRC_DIR/snapsh-post-rollback.service /etc/systemd/system/
+                systemctl daemon-reload
+                mount_check
+                printf "Please enable snapsh-post-rollback.service to automatically remove leftover subvolumes after rollbacks.\n"
+                printf "(Separate backup snapshots of current subvolumes are created automatically by snapsh)\n"
+                exit 0
+            fi
+        else
+            printf "\nSame version of snapsh is already installed, exiting.\n"
+            exit 1
+        fi
+    fi
+                
+}
+
 
 
 # If no options are given, display help
@@ -346,7 +398,7 @@ fi
 
 
 # Options parsing:
-OPTIONS=$(getopt -a -n snapsh -o hs:d:lr:t: --long help,snapshot:,description:,list,remove:,rollback:,type:,post-rollback,mount -- "$@")
+OPTIONS=$(getopt -a -n snapsh -o hvs:d:lr:t: --long help,snapshot:,description:,list,remove:,rollback:,type:,post-rollback,mount,umount,install,version -- "$@")
 
 # Invalid options (getopt returns nonzero)
 if [[ "$?" -ne 0 ]]; then
@@ -363,7 +415,6 @@ while true; do
 
         -h | --help)
             help
-            shift
             exit 0
             ;;
 
@@ -418,9 +469,20 @@ while true; do
             ;;
             
         --mount)
+            SNAPSH_MOUNT=true
             mount_check
-            shift
-            break
+            exit 0
+            ;;
+        --umount)
+            exit 0
+            ;;
+        --install)
+            install
+            exit
+            ;;
+        -v | --version)
+            version
+            exit
             ;;
 
         --)

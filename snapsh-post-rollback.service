@@ -3,7 +3,7 @@ Description=Remove leftover *.backup subvolumes
 
 [Service]
 Type=oneshot
-ExecStart=/usr/sbin/snapsh --post-rollback
+ExecStart=snapsh --post-rollback
 RemainAfterExit=yes
 
 [Install]
