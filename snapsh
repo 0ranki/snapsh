@@ -18,7 +18,7 @@
 
 # Environment set up:
 
-SNAPSH_VERSION='0.1.1'
+SNAPSH_VERSION='0.2.0'
 
 # If config file exists, source it, otherwise use default values
 if [[ -e /etc/snapsh.conf ]]; then
@@ -184,29 +184,61 @@ remove() {
     # List snapshots in to array SNAPSHOTS
     SNAPSHOTS=(${SNAPSHOTS_LOCATION}/*/)
 
-    # Check that given NUMBER is a valid snapshot
-    if [[ "${REMOVE_TARGET}" -gt "${#SNAPSHOTS[@]}" ]]; then
-        printf "Snapshot number ${REMOVE_TARGET} does not exist.\n"
-        exit 1
-    elif [[ "${REMOVE_TARGET}" -lt 1 ]]; then
-        printf "Number must be greater than 0.\n"
-        exit 1
+    if [[ ! "$REMOVE_TARGETS" =~ [,-] ]] && [[ ! "$REMOVE_TARGETS" =~ [^0-9] ]]; then
+        REMOVE_TARGET="$REMOVE_TARGETS"
+    elif [[ "$REMOVE_TARGETS" =~ [,] ]]; then
+        REMOVE_TARGETS=( ${REMOVE_TARGETS//,/ } ) #$(printf $REMOVE_TARGETS | sed 's/,/ /g') )
+    elif [[ "$REMOVE_TARGETS" =~ [-] ]]; then
+        REMOVE_TARGETS=${REMOVE_TARGETS/-/..}
+        REMOVE_TARGETS=( $(eval echo {${REMOVE_TARGETS}}) )
     fi
     
-    let INDEX=${REMOVE_TARGET}-1
-    TARGET=${SNAPSHOTS[${INDEX}]}
-    . ${TARGET}/.snapsh
+    if [[ ! -z "$REMOVE_TARGET" ]]; then
+        # Check that given NUMBER is a valid snapshot
+        if [[ "${REMOVE_TARGET}" -gt "${#SNAPSHOTS[@]}" ]]; then
+            printf "Snapshot number ${REMOVE_TARGET} does not exist.\n"
+            exit 1
+        elif [[ "${REMOVE_TARGET}" -lt 1 ]]; then
+            printf "Number must be greater than 0.\n"
+            exit 1
+        fi
+        
+        let INDEX=${REMOVE_TARGET}-1
+        TARGET=${SNAPSHOTS[${INDEX}]}
+        . ${TARGET}/.snapsh
 
-    printf "Delete snapshot ${REMOVE_TARGET}: ${DATE}, source subvolume ${SOURCE_SUBVOLUME}, ${TYPE}, ${DESCRIPTION} (y/n)? "
-    read -n 1
-    if [[ "${REPLY}" == "y" ]]; then
-        printf "\n"
-        ${BTRFS_EXECUTABLE} property set ${TARGET} ro false     # Set snapshot as read-write first
-        ${BTRFS_EXECUTABLE} subvolume delete ${TARGET}          # Delete snapshot
-        exit 0
+        printf "Delete snapshot ${REMOVE_TARGET}: ${DATE}, source subvolume ${SOURCE_SUBVOLUME}, ${TYPE}, ${DESCRIPTION} (y/n)? "
+        read -n 1
+        if [[ "${REPLY}" == "y" ]]; then
+            printf "\n"
+            ${BTRFS_EXECUTABLE} property set ${TARGET} ro false     # Set snapshot as read-write first
+            ${BTRFS_EXECUTABLE} subvolume delete ${TARGET}          # Delete snapshot
+            exit 0
+        else
+            printf "\nAborted by user.\n"
+            exit 1
+        fi
     else
-        printf "\nAborted by user.\n"
-        exit 1
+        printf "You are about to delete the following snapshots:\n"
+        for ((i = ${#REMOVE_TARGETS[@]}-1 ; i >= 0 ; i--)); do
+            let INDEX=${REMOVE_TARGETS[${i}]}-1
+            TARGET=${SNAPSHOTS[${INDEX}]}
+            . ${TARGET}/.snapsh
+            printf "+ $(($INDEX + 1)):\t${DATE}, source subvolume ${SOURCE_SUBVOLUME},\t${TYPE},\t${DESCRIPTION}\n"
+        done
+        printf "Are you sure? (yes) "
+        read
+        if [[ "$REPLY" == "yes" ]]; then
+            for ((i = ${#REMOVE_TARGETS[@]}-1 ; i >= 0 ; i--)); do
+                let INDEX=${REMOVE_TARGETS[${i}]}-1
+                TARGET=${SNAPSHOTS[${INDEX}]}
+                . ${TARGET}/.snapsh
+                ${BTRFS_EXECUTABLE} property set ${TARGET} ro false     # Set snapshot as read-write first
+                ${BTRFS_EXECUTABLE} subvolume delete ${TARGET}          # Delete snapshot
+            done
+        fi
+
+        exit
     fi
 }
 
@@ -437,7 +469,7 @@ while true; do
             ;;
 
         -r | --remove)
-            REMOVE_TARGET="$2"
+            REMOVE_TARGETS="$2"
             remove
             shift 2
             ;;
