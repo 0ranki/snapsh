@@ -18,7 +18,7 @@
 
 # Environment set up:
 
-SNAPSH_VERSION='0.1.0'
+SNAPSH_VERSION='0.1.1'
 
 # If config file exists, source it, otherwise use default values
 if [[ -e /etc/snapsh.conf ]]; then
@@ -258,8 +258,8 @@ rollback() {
         printf "\n"
 
         # Rename current subvolume
-        printf "Renaming ${SOURCE_SUBVOLUME} to ${SOURCE_SUBVOLUME}.backup...\n"
-        mv ${TOPLEVEL}/${SOURCE_SUBVOLUME} ${TOPLEVEL}/${SOURCE_SUBVOLUME}.backup
+        printf "Renaming ${SOURCE_SUBVOLUME} to ${SOURCE_SUBVOLUME}.previous...\n"
+        mv ${TOPLEVEL}/${SOURCE_SUBVOLUME} ${TOPLEVEL}/${SOURCE_SUBVOLUME}.previous
 
         printf "Copying ${TARGET} to ${TOPLEVEL}/${SOURCE_SUBVOLUME}...\n"
         ${BTRFS_EXECUTABLE} subvolume snapshot ${TARGET} ${TOPLEVEL}/${SOURCE_SUBVOLUME}
@@ -309,7 +309,7 @@ post-rollback() {
     echo "Checking for leftover subvolumes..." | systemd-cat -t snapsh
     mount_check
 
-    BACKUPS=(${TOPLEVEL}/*.backup/)
+    BACKUPS=(${TOPLEVEL}/*.previous/)
 
     if [[ -n "${BACKUPS[@]}" ]]; then
 
@@ -319,6 +319,8 @@ post-rollback() {
             ${BTRFS_EXECUTABLE} subvolume delete ${backup} > /dev/null
             let EXIT_CODE=${EXIT_CODE}+${?}
         done
+
+        echo "Deleted leftover .previous subvolumes." | systemd-cat -t snapsh
 
         exit ${EXIT_CODE}
 
