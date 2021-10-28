@@ -49,6 +49,33 @@ Number | Time:                          |     Source |   Type | Description
     18 |   pe 29.10.2021 01.38.51 +0300 |       home | manual | typetest9
     19 |   pe 29.10.2021 01.39.01 +0300 |       home |   auto | typetest 10
     20 |   pe 29.10.2021 01.39.12 +0300 |       home | manual | typetest10
+[user@localhost]$ sudo snapsh -l -t auto
+Number | Time:                          |     Source |   Type | Description
+     1 |   pe 29.10.2021 01.54.42 +0300 |       home |   auto | typetest 1
+     3 |   pe 29.10.2021 01.54.44 +0300 |       home |   auto | typetest 2
+     5 |   pe 29.10.2021 01.54.46 +0300 |       home |   auto | typetest 3
+     7 |   pe 29.10.2021 01.54.48 +0300 |       home |   auto | typetest 4
+     9 |   pe 29.10.2021 01.54.51 +0300 |       home |   auto | typetest 5
+    11 |   pe 29.10.2021 01.54.53 +0300 |       home |   auto | typetest 6
+    13 |   pe 29.10.2021 01.54.55 +0300 |       home |   auto | typetest 7
+    15 |   pe 29.10.2021 01.54.57 +0300 |       home |   auto | typetest 8
+    17 |   pe 29.10.2021 01.54.59 +0300 |       home |   auto | typetest 9
+    19 |   pe 29.10.2021 01.55.02 +0300 |       home |   auto | typetest 10
+    23 |   pe 29.10.2021 01.55.25 +0300 |       home |   auto | This is a description for the snapshot
+[user@localhost]$ sudo snapsh -l -t manual
+Number | Time:                          |     Source |   Type | Description
+     2 |   pe 29.10.2021 01.54.43 +0300 |       home | manual | typetest1
+     4 |   pe 29.10.2021 01.54.45 +0300 |       home | manual | typetest2
+     6 |   pe 29.10.2021 01.54.47 +0300 |       home | manual | typetest3
+     8 |   pe 29.10.2021 01.54.49 +0300 |       home | manual | typetest4
+    10 |   pe 29.10.2021 01.54.52 +0300 |       home | manual | typetest5
+    12 |   pe 29.10.2021 01.54.54 +0300 |       home | manual | typetest6
+    14 |   pe 29.10.2021 01.54.56 +0300 |       home | manual | typetest7
+    16 |   pe 29.10.2021 01.54.58 +0300 |       home | manual | typetest8
+    18 |   pe 29.10.2021 01.55.01 +0300 |       home | manual | typetest9
+    20 |   pe 29.10.2021 01.55.03 +0300 |       home | manual | typetest10
+    21 |   pe 29.10.2021 01.55.16 +0300 |       home | manual | 
+    22 |   pe 29.10.2021 01.55.21 +0300 |       home | manual | This is a description for the snapshot
 [user@localhost]$
 ```
 ##### `--mount` and `--umount`
