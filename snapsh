@@ -18,7 +18,7 @@
 
 # Environment set up:
 
-SNAPSH_VERSION='0.2.0'
+SNAPSH_VERSION='0.2.1'
 
 # If config file exists, source it, otherwise use default values
 if [[ -e /etc/snapsh.conf ]]; then
@@ -389,35 +389,37 @@ install() {
 
     root_check
 
-    CURRENT_SNAPSH=$(command -v snapsh)
-    INSTALLED=$?
-    printf "Installing from $0. Make sure you are not executing snapsh from your \$PATH!\n"
-    read -p "Press enter to continue or CTRL-C to stop..."
-    unset $REPLY
-    if [[ ! "$INSTALLED" ]]; then
-        cp $0 $INSTALL_DIR
-        exit 0
-    else
+    SRC_DIR=${0%/*}
+    INSTALLED=$(command -v snapsh)
+    if [[ -n "$INSTALLED" ]]; then
+        printf "Installing from $0. Make sure you are not executing snapsh from your \$PATH!\n"
+        read -p "Press enter to continue or CTRL-C to stop..."
+        unset $REPLY
         CURRENT_VERSION=$(snapsh -v)
         if [[ "$CURRENT_VERSION" != "$SNAPSH_VERSION" ]]; then
-            SRC_DIR=${0%/*}
-            printf "/usr/local/bin/snapsh version $CURRENT_VERSION is already installed.\n"
+            printf "${INSTALL_DIR} already contains snapsh version $CURRENT_VERSION.\n"
             printf "Do you want to overwrite it with version $SNAPSH_VERSION? (y/n) "
-            read -n1
-            if [[ "$REPLY" == "y" ]]; then
-                cp -v $0 $INSTALL_DIR
-                cp -v $SRC_DIR/snapsh.conf /etc/snapsh.conf
-                cp -v $SRC_DIR/snapsh-post-rollback.service /etc/systemd/system/
-                systemctl daemon-reload
-                mount_check
-                printf "Please enable snapsh-post-rollback.service to automatically remove leftover subvolumes after rollbacks.\n"
-                printf "(Separate backup snapshots of current subvolumes are created automatically by snapsh)\n"
-                exit 0
-            fi
+            read -n1 OVERWRITE
         else
             printf "\nSame version of snapsh is already installed, exiting.\n"
             exit 1
         fi
+    fi
+
+    if [[ "$OVERWRITE" == "y" ]] || [[ -z "$INSTALLED" ]]; then
+        printf "Installing snapsh executable to $INSTALL_DIR"
+        cp -v $0 $INSTALL_DIR
+        COPYCONFIG='y'
+        if [[ -f /etc/snapsh.conf ]]; then
+            read -p -n1 "/etc/snapsh.conf already exists. Overwrite? (y/n)" COPYCONFIG
+        fi
+        [[ "$COPYCONFIG" == "y" ]] && cp -fv $SRC_DIR/snapsh.conf /etc/snapsh.conf
+        cp -v $SRC_DIR/snapsh-post-rollback.service /etc/systemd/system/
+        systemctl daemon-reload
+        mount_check
+        printf "Please enable snapsh-post-rollback.service to automatically remove leftover subvolumes after rollbacks.\n"
+        printf "(Separate backup snapshots of current subvolumes are created automatically by snapsh)\n"
+        exit 0
     fi
                 
 }
