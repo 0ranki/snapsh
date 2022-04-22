@@ -156,6 +156,10 @@ Snapshot created!
 
 #### Notes:
 
+##### Nestes subvolumes:
+- Nested subvolumes will probably cause issues with rollbacks.
+- Like generally with btrfs, it's far easier to use a flat layout and use `/etc/fstab` to mount them into correct places
+
 ##### SELinux:
 - After a rollback, SELinux might cause issues like not being able to log in, because SELinux prevents access to the home folder (Might happen for the root user as well). Snapsh asks to enable a relabeling on the next boot if it detects that SELinux is enforcing. This is recommended, but the relabeling might take time on a large filesystem. If you want to skip the long relabeling and face issues, SELinux can be set to permissive mode before booting by:
   - Adding the parameter `enforcing=0` to the kernel command line (e.g. press `e` on GRUB menu to edit the command line for the current boot)
@@ -166,6 +170,7 @@ Snapshot created!
 - `systemd` timer for automating snapshots
 - `--auto` option (quiet) for automated snapshots
 - Option to snapshot multiple/all subvolumes
+- Handle nested subvolumes correctly
 
 Root access is required for `btrfs-progs`.
 
