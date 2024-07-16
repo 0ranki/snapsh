@@ -18,7 +18,7 @@
 
 # Environment set up:
 
-SNAPSH_VERSION='0.2.1'
+SNAPSH_VERSION='0.2.2'
 
 # If config file exists, source it, otherwise use default values
 if [[ -e /etc/snapsh.conf ]]; then
@@ -32,8 +32,8 @@ fi                                                      # (Not the one used in -
 
 exit() {
     if [[ "$SNAPSH_MOUNT" != "true" ]]; then
-        umount ${TOPLEVEL} &> /dev/null
-        rmdir ${TOPLEVEL} &> /dev/null
+        umount ${TOPLEVEL} || builtin exit 23
+        rmdir ${TOPLEVEL}
     fi
     builtin exit $1
 }
@@ -62,7 +62,10 @@ Options:
                                     with snapsh -l
     --rollback NUMBER               Roll back to snapshot NUMBER. See snapshot
                                     numbers with snapsh -l. Target subvolume is
-                                    detected from snapshot automatically.\n"
+                                    detected from snapshot automatically.
+    --mount                         Mount the top level subvolume to /root/btrfs-toplevel
+    --umount			    Unmount the top level subvolume
+				    \n"
 }
 
 mount_check() {
