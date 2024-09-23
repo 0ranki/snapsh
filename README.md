@@ -1,6 +1,8 @@
 # snapsh
 Btrfs snapshot managing bash script
 
+<sup><small>Upstream: https://git.oranki.net/jarno/snapsh</small></sup>
+
 ### Requirements:
 - `bash`
 - GNU `setopt` - part of GNU `coreutils`
